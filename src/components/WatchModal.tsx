@@ -12,6 +12,8 @@ import {
   ShieldCheck,
   RefreshCw,
   Sparkles,
+  Volume2,
+  Languages,
 } from "lucide-react";
 import { useContinueWatchingStore } from "../store/continueWatchingStore";
 import { formatRuntime } from "../utils/formatters";
@@ -34,7 +36,8 @@ interface StreamServer {
   id: string;
   name: string;
   badge: string;
-  getUrl: (type: "movie" | "tv", id: number, s: number, e: number) => string;
+  hindiSupported?: boolean;
+  getUrl: (type: "movie" | "tv", id: number, s: number, e: number, lang: "en" | "hi") => string;
 }
 
 const STREAM_SERVERS: StreamServer[] = [
@@ -42,33 +45,37 @@ const STREAM_SERVERS: StreamServer[] = [
     id: "vidlink",
     name: "Server 1 (VidLink)",
     badge: "Clean HD",
+    hindiSupported: true,
     getUrl: (type, id, s, e) =>
       type === "movie"
         ? `https://vidlink.pro/movie/${id}?primaryColor=e50914&secondaryColor=141419&iconColor=ffffff`
         : `https://vidlink.pro/tv/${id}/${s}/${e}?primaryColor=e50914&secondaryColor=141419&iconColor=ffffff`,
   },
   {
-    id: "vidsrc-me",
-    name: "Server 2 (VidSrc Prime)",
-    badge: "1080p / Fast",
-    getUrl: (type, id, s, e) =>
+    id: "autoembed",
+    name: "Server 2 (AutoEmbed Hindi)",
+    badge: "Hindi / Dual Audio",
+    hindiSupported: true,
+    getUrl: (type, id, s, e, lang) =>
       type === "movie"
-        ? `https://vidsrc.me/embed/movie?tmdb=${id}`
-        : `https://vidsrc.me/embed/tv?tmdb=${id}&season=${s}&episode=${e}`,
+        ? `https://autoembed.co/movie/tmdb/${id}${lang === "hi" ? "?lang=hi" : ""}`
+        : `https://autoembed.co/tv/tmdb/${id}-${s}-${e}${lang === "hi" ? "?lang=hi" : ""}`,
   },
   {
-    id: "autoembed",
-    name: "Server 3 (AutoEmbed)",
-    badge: "Ultra HD",
-    getUrl: (type, id, s, e) =>
+    id: "vidsrc-me",
+    name: "Server 3 (VidSrc Prime)",
+    badge: "1080p / Multi-Audio",
+    hindiSupported: true,
+    getUrl: (type, id, s, e, lang) =>
       type === "movie"
-        ? `https://autoembed.co/movie/tmdb/${id}`
-        : `https://autoembed.co/tv/tmdb/${id}-${s}-${e}`,
+        ? `https://vidsrc.me/embed/movie?tmdb=${id}${lang === "hi" ? "&ds_lang=hi" : ""}`
+        : `https://vidsrc.me/embed/tv?tmdb=${id}&season=${s}&episode=${e}${lang === "hi" ? "&ds_lang=hi" : ""}`,
   },
   {
     id: "2embed",
     name: "Server 4 (2Embed)",
     badge: "Multi-Sub",
+    hindiSupported: false,
     getUrl: (type, id, s, e) =>
       type === "movie"
         ? `https://2embed.cc/embed/${id}`
@@ -78,6 +85,7 @@ const STREAM_SERVERS: StreamServer[] = [
     id: "vidsrc-pm",
     name: "Server 5 (VidSrc PM)",
     badge: "Backup CDN",
+    hindiSupported: false,
     getUrl: (type, id, s, e) =>
       type === "movie"
         ? `https://vidsrc.pm/embed/movie/${id}`
@@ -98,7 +106,15 @@ export const WatchModal: React.FC<WatchModalProps> = ({
   initialEpisode = 1,
   totalSeasons = 1,
 }) => {
-  const [activeServer, setActiveServer] = useState<string>("vidlink");
+  const [audioLang, setAudioLang] = useState<"en" | "hi">(() => {
+    return (localStorage.getItem("streamverse_audio_lang") as "en" | "hi") || "en";
+  });
+
+  const [activeServer, setActiveServer] = useState<string>(() => {
+    const saved = localStorage.getItem("streamverse_audio_lang");
+    return saved === "hi" ? "autoembed" : "vidlink";
+  });
+
   const [season, setSeason] = useState<number>(initialSeason);
   const [episode, setEpisode] = useState<number>(initialEpisode);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
@@ -112,13 +128,24 @@ export const WatchModal: React.FC<WatchModalProps> = ({
     setEpisode(initialEpisode || 1);
   }, [initialSeason, initialEpisode, isOpen]);
 
+  // When user toggles audio language
+  const handleAudioLangChange = (lang: "en" | "hi") => {
+    setAudioLang(lang);
+    localStorage.setItem("streamverse_audio_lang", lang);
+    if (lang === "hi") {
+      // Switch to Hindi-supporting server if current is not
+      if (activeServer !== "autoembed" && activeServer !== "vidsrc-me") {
+        setActiveServer("autoembed");
+      }
+    }
+  };
+
   // Anti-popup protection without triggering sandbox detection
   useEffect(() => {
     if (!isOpen) return;
 
-    // Defuse window.open popup spam
     const originalOpen = window.open;
-    window.open = (url?: string | URL, target?: string, features?: string) => {
+    window.open = (url?: string | URL) => {
       console.warn("[StreamVerse] Blocked popup attempt to:", url);
       return null;
     };
@@ -174,7 +201,7 @@ export const WatchModal: React.FC<WatchModalProps> = ({
   const currentServerObj =
     STREAM_SERVERS.find((s) => s.id === activeServer) || STREAM_SERVERS[0];
 
-  const streamSrc = currentServerObj.getUrl(mediaType, id, season, episode);
+  const streamSrc = currentServerObj.getUrl(mediaType, id, season, episode, audioLang);
 
   return (
     <div
@@ -219,16 +246,44 @@ export const WatchModal: React.FC<WatchModalProps> = ({
           </div>
 
           <div className="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
+            {/* Audio Language Preference Switcher */}
+            <div className="flex items-center bg-base-750 p-0.5 rounded-xl border border-white/10 bg-base-700/80">
+              <button
+                type="button"
+                onClick={() => handleAudioLangChange("en")}
+                className={`flex items-center space-x-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                  audioLang === "en"
+                    ? "bg-cinema-red text-white shadow-md shadow-cinema-red/30"
+                    : "text-gray-300 hover:text-white"
+                }`}
+                title="Play in English"
+              >
+                <span>🇬🇧 English</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleAudioLangChange("hi")}
+                className={`flex items-center space-x-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                  audioLang === "hi"
+                    ? "bg-amber-600 text-white shadow-md shadow-amber-600/30"
+                    : "text-gray-300 hover:text-white"
+                }`}
+                title="Play in Hindi Dub / Dual Audio"
+              >
+                <span>🇮🇳 Hindi</span>
+              </button>
+            </div>
+
             {/* Popup Guard Active Badge */}
             <div
-              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-950/60 border border-emerald-500/40 text-emerald-300"
+              className="hidden lg:flex items-center space-x-1 px-2.5 py-1 rounded-xl text-xs font-semibold bg-emerald-950/60 border border-emerald-500/40 text-emerald-300"
               title="Automatic popup shield is active"
             >
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="hidden md:inline">Popup Guard Active</span>
+              <span>Guard ON</span>
             </div>
 
-            {/* Reload button if stream stalls */}
+            {/* Reload button */}
             <button
               onClick={() => setReloadKey((prev) => prev + 1)}
               className="p-2 rounded-xl text-gray-300 hover:text-white hover:bg-white/10 transition-colors"
@@ -242,7 +297,7 @@ export const WatchModal: React.FC<WatchModalProps> = ({
               href={streamSrc}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center space-x-1 px-3 py-1.5 rounded-xl bg-base-700/80 hover:bg-base-600 text-gray-200 hover:text-white border border-white/10 text-xs font-medium transition-colors"
+              className="flex items-center space-x-1 px-2.5 py-1.5 rounded-xl bg-base-700/80 hover:bg-base-600 text-gray-200 hover:text-white border border-white/10 text-xs font-medium transition-colors"
               title="Open stream in a clean external browser tab"
             >
               <ExternalLink className="w-3.5 h-3.5" />
@@ -273,10 +328,10 @@ export const WatchModal: React.FC<WatchModalProps> = ({
           </div>
         </div>
 
-        {/* Video Player Frame Area (No Sandbox attribute to avoid server anti-sandbox trigger) */}
+        {/* Video Player Frame Area */}
         <div className="relative flex-1 bg-black flex items-center justify-center overflow-hidden">
           <iframe
-            key={`${streamSrc}-${reloadKey}`}
+            key={`${streamSrc}-${reloadKey}-${audioLang}`}
             src={streamSrc}
             title={`${title} stream`}
             className="w-full h-full border-0"
@@ -285,16 +340,26 @@ export const WatchModal: React.FC<WatchModalProps> = ({
           />
         </div>
 
-        {/* Quality Tip & Server Status Bar */}
-        <div className="px-4 py-2 bg-base-950/80 border-t border-white/5 flex items-center justify-between text-[11px] text-gray-300">
-          <div className="flex items-center gap-1.5 truncate">
-            <Sparkles className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
-            <span>
-              <strong>Quality Tip:</strong> Click the ⚙️ gear icon inside the player to lock to <strong>1080p</strong> instead of Auto.
-            </span>
-          </div>
+        {/* Quality & Audio Language Tip Bar */}
+        <div className="px-4 py-2 bg-base-950/90 border-t border-white/5 flex flex-wrap items-center justify-between text-[11px] gap-2">
+          {audioLang === "hi" ? (
+            <div className="flex items-center gap-1.5 text-amber-300 font-medium">
+              <Volume2 className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+              <span>
+                <strong>Hindi Mode Active:</strong> Server 2 & 3 prioritize Hindi Dual Audio. If it plays in English, click the 🎧/🔊 audio icon inside the player to switch to Hindi.
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 text-gray-300">
+              <Sparkles className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+              <span>
+                <strong>English Mode:</strong> Click the ⚙️ gear icon inside the player to set resolution to <strong>1080p Full HD</strong>.
+              </span>
+            </div>
+          )}
+
           <span className="hidden sm:inline text-gray-400 text-[10px]">
-            Switch servers if one buffers
+            Switch to Server 2 or 3 if dual-audio is needed
           </span>
         </div>
 
@@ -318,7 +383,13 @@ export const WatchModal: React.FC<WatchModalProps> = ({
                 }`}
               >
                 <span>{server.name}</span>
-                <span className="text-[10px] px-1 py-0.2 rounded bg-black/30 text-gray-300">
+                <span
+                  className={`text-[10px] px-1 py-0.2 rounded ${
+                    audioLang === "hi" && server.hindiSupported
+                      ? "bg-amber-500/20 text-amber-300 font-semibold"
+                      : "bg-black/30 text-gray-300"
+                  }`}
+                >
                   {server.badge}
                 </span>
               </button>
