@@ -7,10 +7,11 @@ import {
   Minimize2,
   Tv,
   Film,
-  Sparkles,
-  Layers,
   ChevronRight,
   ExternalLink,
+  Shield,
+  ShieldCheck,
+  AlertTriangle,
 } from "lucide-react";
 import { useContinueWatchingStore } from "../store/continueWatchingStore";
 import { formatRuntime } from "../utils/formatters";
@@ -33,41 +34,52 @@ interface StreamServer {
   id: string;
   name: string;
   badge: string;
+  isAdFree?: boolean;
   getUrl: (type: "movie" | "tv", id: number, s: number, e: number) => string;
 }
 
 const STREAM_SERVERS: StreamServer[] = [
   {
-    id: "vidsrc-to",
-    name: "Server Alpha (VidSrc)",
-    badge: "Fast / HD",
+    id: "vidlink",
+    name: "Server 1 (VidLink)",
+    badge: "Ad-Free / Fast",
+    isAdFree: true,
     getUrl: (type, id, s, e) =>
       type === "movie"
-        ? `https://vidsrc.to/embed/movie/${id}`
-        : `https://vidsrc.to/embed/tv/${id}/${s}/${e}`,
+        ? `https://vidlink.pro/movie/${id}?primaryColor=e50914&secondaryColor=141419&iconColor=ffffff`
+        : `https://vidlink.pro/tv/${id}/${s}/${e}?primaryColor=e50914&secondaryColor=141419&iconColor=ffffff`,
+  },
+  {
+    id: "vidsrc-icu",
+    name: "Server 2 (VidSrc ICU)",
+    badge: "Multi-Audio",
+    getUrl: (type, id, s, e) =>
+      type === "movie"
+        ? `https://vidsrc.icu/embed/movie/${id}`
+        : `https://vidsrc.icu/embed/tv/${id}/${s}/${e}`,
   },
   {
     id: "embed-su",
-    name: "Server Beta (EmbedSU)",
-    badge: "Multi-Audio",
+    name: "Server 3 (EmbedSU)",
+    badge: "HD / Subtitles",
     getUrl: (type, id, s, e) =>
       type === "movie"
         ? `https://embed.su/embed/movie/${id}`
         : `https://embed.su/embed/tv/${id}/${s}/${e}`,
   },
   {
-    id: "vidsrc-xyz",
-    name: "Server Gamma (VidSrc XYZ)",
+    id: "vidsrc-to",
+    name: "Server 4 (VidSrc TO)",
     badge: "Reliable",
     getUrl: (type, id, s, e) =>
       type === "movie"
-        ? `https://vidsrc.xyz/embed/movie/${id}`
-        : `https://vidsrc.xyz/embed/tv?tmdb=${id}&season=${s}&episode=${e}`,
+        ? `https://vidsrc.to/embed/movie/${id}`
+        : `https://vidsrc.to/embed/tv/${id}/${s}/${e}`,
   },
   {
     id: "multiembed",
-    name: "Server Delta (MultiEmbed)",
-    badge: "Subtitles",
+    name: "Server 5 (MultiEmbed)",
+    badge: "Alternative",
     getUrl: (type, id, s, e) =>
       type === "movie"
         ? `https://multiembed.mov/?video_id=${id}&tmdb=1`
@@ -88,11 +100,10 @@ export const WatchModal: React.FC<WatchModalProps> = ({
   initialEpisode = 1,
   totalSeasons = 1,
 }) => {
-  const [activeServer, setActiveServer] = useState<string>("vidsrc-to");
+  const [activeServer, setActiveServer] = useState<string>("vidlink");
   const [season, setSeason] = useState<number>(initialSeason);
   const [episode, setEpisode] = useState<number>(initialEpisode);
-  const [customUrl, setCustomUrl] = useState<string>("");
-  const [useCustomUrl, setUseCustomUrl] = useState<boolean>(false);
+  const [adShield, setAdShield] = useState<boolean>(true);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
 
   const { updateProgress } = useContinueWatchingStore();
@@ -149,9 +160,7 @@ export const WatchModal: React.FC<WatchModalProps> = ({
   const currentServerObj =
     STREAM_SERVERS.find((s) => s.id === activeServer) || STREAM_SERVERS[0];
 
-  const streamSrc = useCustomUrl && customUrl.trim()
-    ? customUrl.trim()
-    : currentServerObj.getUrl(mediaType, id, season, episode);
+  const streamSrc = currentServerObj.getUrl(mediaType, id, season, episode);
 
   return (
     <div
@@ -174,7 +183,7 @@ export const WatchModal: React.FC<WatchModalProps> = ({
         }`}
       >
         {/* Top Player Header */}
-        <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-white/10 bg-base-800/80">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-white/10 bg-base-800/90">
           <div className="flex items-center space-x-3 min-w-0">
             <div className="p-1.5 rounded-lg bg-cinema-red text-white flex items-center justify-center">
               {mediaType === "movie" ? (
@@ -195,7 +204,43 @@ export const WatchModal: React.FC<WatchModalProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center space-x-2 flex-shrink-0">
+          <div className="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
+            {/* Ad-Shield Toggle */}
+            <button
+              onClick={() => setAdShield(!adShield)}
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
+                adShield
+                  ? "bg-emerald-950/60 border-emerald-500/40 text-emerald-300"
+                  : "bg-base-700 text-gray-400 border-white/10"
+              }`}
+              title={
+                adShield
+                  ? "Ad-Shield is ACTIVE: Malicious popups & redirects blocked"
+                  : "Ad-Shield is OFF"
+              }
+            >
+              {adShield ? (
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+              ) : (
+                <Shield className="w-3.5 h-3.5 text-gray-400" />
+              )}
+              <span className="hidden md:inline">
+                Ad-Shield: {adShield ? "ON" : "OFF"}
+              </span>
+            </button>
+
+            {/* Direct Tab button */}
+            <a
+              href={streamSrc}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center space-x-1 px-3 py-1.5 rounded-xl bg-base-700/80 hover:bg-base-600 text-gray-200 hover:text-white border border-white/10 text-xs font-medium transition-colors"
+              title="Open stream in a clean external browser tab"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">External Player</span>
+            </a>
+
             {/* Fullscreen toggle */}
             <button
               onClick={() => setIsFullscreen(!isFullscreen)}
@@ -220,15 +265,20 @@ export const WatchModal: React.FC<WatchModalProps> = ({
           </div>
         </div>
 
-        {/* Video Player Frame Area */}
+        {/* Video Player Frame Area with Ad-Shield Sandbox */}
         <div className="relative flex-1 bg-black flex items-center justify-center overflow-hidden">
           <iframe
-            key={streamSrc}
+            key={`${streamSrc}-${adShield}`}
             src={streamSrc}
-            title={`${title} full stream`}
+            title={`${title} stream`}
             className="w-full h-full border-0"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
             allowFullScreen
+            sandbox={
+              adShield
+                ? "allow-scripts allow-same-origin allow-forms allow-presentation"
+                : undefined
+            }
           />
         </div>
 
@@ -244,18 +294,23 @@ export const WatchModal: React.FC<WatchModalProps> = ({
             {STREAM_SERVERS.map((server) => (
               <button
                 key={server.id}
-                onClick={() => {
-                  setUseCustomUrl(false);
-                  setActiveServer(server.id);
-                }}
+                onClick={() => setActiveServer(server.id)}
                 className={`px-3 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap flex items-center gap-1.5 ${
-                  !useCustomUrl && activeServer === server.id
-                    ? "bg-cinema-red text-white shadow-md shadow-cinema-red/30"
+                  activeServer === server.id
+                    ? "bg-cinema-red text-white shadow-md shadow-cinema-red/30 font-bold"
                     : "bg-base-700/60 text-gray-300 hover:bg-base-600 hover:text-white"
                 }`}
               >
                 <span>{server.name}</span>
-                <span className="text-[10px] opacity-75">({server.badge})</span>
+                <span
+                  className={`text-[10px] px-1 py-0.2 rounded ${
+                    server.isAdFree
+                      ? "bg-emerald-500/20 text-emerald-300"
+                      : "bg-black/30 text-gray-400"
+                  }`}
+                >
+                  {server.badge}
+                </span>
               </button>
             ))}
           </div>
