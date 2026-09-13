@@ -11,6 +11,7 @@ import {
   ExternalLink,
   ShieldCheck,
   RefreshCw,
+  Sparkles,
 } from "lucide-react";
 import { useContinueWatchingStore } from "../store/continueWatchingStore";
 import { formatRuntime } from "../utils/formatters";
@@ -40,47 +41,47 @@ const STREAM_SERVERS: StreamServer[] = [
   {
     id: "vidlink",
     name: "Server 1 (VidLink)",
-    badge: "Direct / HD",
+    badge: "Clean HD",
     getUrl: (type, id, s, e) =>
       type === "movie"
         ? `https://vidlink.pro/movie/${id}?primaryColor=e50914&secondaryColor=141419&iconColor=ffffff`
         : `https://vidlink.pro/tv/${id}/${s}/${e}?primaryColor=e50914&secondaryColor=141419&iconColor=ffffff`,
   },
   {
-    id: "multiembed",
-    name: "Server 2 (MultiEmbed)",
-    badge: "Reliable / Subs",
+    id: "vidsrc-me",
+    name: "Server 2 (VidSrc Prime)",
+    badge: "1080p / Fast",
     getUrl: (type, id, s, e) =>
       type === "movie"
-        ? `https://multiembed.mov/?video_id=${id}&tmdb=1`
-        : `https://multiembed.mov/?video_id=${id}&tmdb=1&s=${s}&e=${e}`,
+        ? `https://vidsrc.me/embed/movie?tmdb=${id}`
+        : `https://vidsrc.me/embed/tv?tmdb=${id}&season=${s}&episode=${e}`,
   },
   {
-    id: "embed-su",
-    name: "Server 3 (EmbedSU)",
-    badge: "Fast / 1080p",
+    id: "autoembed",
+    name: "Server 3 (AutoEmbed)",
+    badge: "Ultra HD",
     getUrl: (type, id, s, e) =>
       type === "movie"
-        ? `https://embed.su/embed/movie/${id}`
-        : `https://embed.su/embed/tv/${id}/${s}/${e}`,
+        ? `https://autoembed.co/movie/tmdb/${id}`
+        : `https://autoembed.co/tv/tmdb/${id}-${s}-${e}`,
   },
   {
-    id: "vidsrc-icu",
-    name: "Server 4 (VidSrc ICU)",
-    badge: "Multi-Audio",
+    id: "2embed",
+    name: "Server 4 (2Embed)",
+    badge: "Multi-Sub",
     getUrl: (type, id, s, e) =>
       type === "movie"
-        ? `https://vidsrc.icu/embed/movie/${id}`
-        : `https://vidsrc.icu/embed/tv/${id}/${s}/${e}`,
+        ? `https://2embed.cc/embed/${id}`
+        : `https://2embed.cc/embedtv/${id}&s=${s}&e=${e}`,
   },
   {
-    id: "vidsrc-cc",
-    name: "Server 5 (VidSrc CC)",
-    badge: "Backup",
+    id: "vidsrc-pm",
+    name: "Server 5 (VidSrc PM)",
+    badge: "Backup CDN",
     getUrl: (type, id, s, e) =>
       type === "movie"
-        ? `https://vidsrc.cc/v2/embed/movie/${id}`
-        : `https://vidsrc.cc/v2/embed/tv/${id}/${s}/${e}`,
+        ? `https://vidsrc.pm/embed/movie/${id}`
+        : `https://vidsrc.pm/embed/tv/${id}/${s}/${e}`,
   },
 ];
 
@@ -282,6 +283,19 @@ export const WatchModal: React.FC<WatchModalProps> = ({
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
             allowFullScreen
           />
+        </div>
+
+        {/* Quality Tip & Server Status Bar */}
+        <div className="px-4 py-2 bg-base-950/80 border-t border-white/5 flex items-center justify-between text-[11px] text-gray-300">
+          <div className="flex items-center gap-1.5 truncate">
+            <Sparkles className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+            <span>
+              <strong>Quality Tip:</strong> Click the ⚙️ gear icon inside the player to lock to <strong>1080p</strong> instead of Auto.
+            </span>
+          </div>
+          <span className="hidden sm:inline text-gray-400 text-[10px]">
+            Switch servers if one buffers
+          </span>
         </div>
 
         {/* Bottom Stream Controls Bar */}
