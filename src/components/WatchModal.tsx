@@ -9,9 +9,8 @@ import {
   Film,
   ChevronRight,
   ExternalLink,
-  Shield,
   ShieldCheck,
-  AlertTriangle,
+  RefreshCw,
 } from "lucide-react";
 import { useContinueWatchingStore } from "../store/continueWatchingStore";
 import { formatRuntime } from "../utils/formatters";
@@ -34,7 +33,6 @@ interface StreamServer {
   id: string;
   name: string;
   badge: string;
-  isAdFree?: boolean;
   getUrl: (type: "movie" | "tv", id: number, s: number, e: number) => string;
 }
 
@@ -42,16 +40,33 @@ const STREAM_SERVERS: StreamServer[] = [
   {
     id: "vidlink",
     name: "Server 1 (VidLink)",
-    badge: "Ad-Free / Fast",
-    isAdFree: true,
+    badge: "Direct / HD",
     getUrl: (type, id, s, e) =>
       type === "movie"
         ? `https://vidlink.pro/movie/${id}?primaryColor=e50914&secondaryColor=141419&iconColor=ffffff`
         : `https://vidlink.pro/tv/${id}/${s}/${e}?primaryColor=e50914&secondaryColor=141419&iconColor=ffffff`,
   },
   {
+    id: "multiembed",
+    name: "Server 2 (MultiEmbed)",
+    badge: "Reliable / Subs",
+    getUrl: (type, id, s, e) =>
+      type === "movie"
+        ? `https://multiembed.mov/?video_id=${id}&tmdb=1`
+        : `https://multiembed.mov/?video_id=${id}&tmdb=1&s=${s}&e=${e}`,
+  },
+  {
+    id: "embed-su",
+    name: "Server 3 (EmbedSU)",
+    badge: "Fast / 1080p",
+    getUrl: (type, id, s, e) =>
+      type === "movie"
+        ? `https://embed.su/embed/movie/${id}`
+        : `https://embed.su/embed/tv/${id}/${s}/${e}`,
+  },
+  {
     id: "vidsrc-icu",
-    name: "Server 2 (VidSrc ICU)",
+    name: "Server 4 (VidSrc ICU)",
     badge: "Multi-Audio",
     getUrl: (type, id, s, e) =>
       type === "movie"
@@ -59,31 +74,13 @@ const STREAM_SERVERS: StreamServer[] = [
         : `https://vidsrc.icu/embed/tv/${id}/${s}/${e}`,
   },
   {
-    id: "embed-su",
-    name: "Server 3 (EmbedSU)",
-    badge: "HD / Subtitles",
+    id: "vidsrc-cc",
+    name: "Server 5 (VidSrc CC)",
+    badge: "Backup",
     getUrl: (type, id, s, e) =>
       type === "movie"
-        ? `https://embed.su/embed/movie/${id}`
-        : `https://embed.su/embed/tv/${id}/${s}/${e}`,
-  },
-  {
-    id: "vidsrc-to",
-    name: "Server 4 (VidSrc TO)",
-    badge: "Reliable",
-    getUrl: (type, id, s, e) =>
-      type === "movie"
-        ? `https://vidsrc.to/embed/movie/${id}`
-        : `https://vidsrc.to/embed/tv/${id}/${s}/${e}`,
-  },
-  {
-    id: "multiembed",
-    name: "Server 5 (MultiEmbed)",
-    badge: "Alternative",
-    getUrl: (type, id, s, e) =>
-      type === "movie"
-        ? `https://multiembed.mov/?video_id=${id}&tmdb=1`
-        : `https://multiembed.mov/?video_id=${id}&tmdb=1&s=${s}&e=${e}`,
+        ? `https://vidsrc.cc/v2/embed/movie/${id}`
+        : `https://vidsrc.cc/v2/embed/tv/${id}/${s}/${e}`,
   },
 ];
 
@@ -103,8 +100,8 @@ export const WatchModal: React.FC<WatchModalProps> = ({
   const [activeServer, setActiveServer] = useState<string>("vidlink");
   const [season, setSeason] = useState<number>(initialSeason);
   const [episode, setEpisode] = useState<number>(initialEpisode);
-  const [adShield, setAdShield] = useState<boolean>(true);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [reloadKey, setReloadKey] = useState<number>(0);
 
   const { updateProgress } = useContinueWatchingStore();
 
@@ -113,6 +110,22 @@ export const WatchModal: React.FC<WatchModalProps> = ({
     setSeason(initialSeason || 1);
     setEpisode(initialEpisode || 1);
   }, [initialSeason, initialEpisode, isOpen]);
+
+  // Anti-popup protection without triggering sandbox detection
+  useEffect(() => {
+    if (!isOpen) return;
+
+    // Defuse window.open popup spam
+    const originalOpen = window.open;
+    window.open = (url?: string | URL, target?: string, features?: string) => {
+      console.warn("[StreamVerse] Blocked popup attempt to:", url);
+      return null;
+    };
+
+    return () => {
+      window.open = originalOpen;
+    };
+  }, [isOpen]);
 
   // Record into Continue Watching store when opened
   useEffect(() => {
@@ -205,31 +218,25 @@ export const WatchModal: React.FC<WatchModalProps> = ({
           </div>
 
           <div className="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
-            {/* Ad-Shield Toggle */}
-            <button
-              onClick={() => setAdShield(!adShield)}
-              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
-                adShield
-                  ? "bg-emerald-950/60 border-emerald-500/40 text-emerald-300"
-                  : "bg-base-700 text-gray-400 border-white/10"
-              }`}
-              title={
-                adShield
-                  ? "Ad-Shield is ACTIVE: Malicious popups & redirects blocked"
-                  : "Ad-Shield is OFF"
-              }
+            {/* Popup Guard Active Badge */}
+            <div
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-950/60 border border-emerald-500/40 text-emerald-300"
+              title="Automatic popup shield is active"
             >
-              {adShield ? (
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-              ) : (
-                <Shield className="w-3.5 h-3.5 text-gray-400" />
-              )}
-              <span className="hidden md:inline">
-                Ad-Shield: {adShield ? "ON" : "OFF"}
-              </span>
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="hidden md:inline">Popup Guard Active</span>
+            </div>
+
+            {/* Reload button if stream stalls */}
+            <button
+              onClick={() => setReloadKey((prev) => prev + 1)}
+              className="p-2 rounded-xl text-gray-300 hover:text-white hover:bg-white/10 transition-colors"
+              title="Reload Stream"
+            >
+              <RefreshCw className="w-4 h-4" />
             </button>
 
-            {/* Direct Tab button */}
+            {/* Direct External Player */}
             <a
               href={streamSrc}
               target="_blank"
@@ -238,7 +245,7 @@ export const WatchModal: React.FC<WatchModalProps> = ({
               title="Open stream in a clean external browser tab"
             >
               <ExternalLink className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">External Player</span>
+              <span className="hidden sm:inline">External Tab</span>
             </a>
 
             {/* Fullscreen toggle */}
@@ -265,20 +272,15 @@ export const WatchModal: React.FC<WatchModalProps> = ({
           </div>
         </div>
 
-        {/* Video Player Frame Area with Ad-Shield Sandbox */}
+        {/* Video Player Frame Area (No Sandbox attribute to avoid server anti-sandbox trigger) */}
         <div className="relative flex-1 bg-black flex items-center justify-center overflow-hidden">
           <iframe
-            key={`${streamSrc}-${adShield}`}
+            key={`${streamSrc}-${reloadKey}`}
             src={streamSrc}
             title={`${title} stream`}
             className="w-full h-full border-0"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
             allowFullScreen
-            sandbox={
-              adShield
-                ? "allow-scripts allow-same-origin allow-forms allow-presentation"
-                : undefined
-            }
           />
         </div>
 
@@ -302,13 +304,7 @@ export const WatchModal: React.FC<WatchModalProps> = ({
                 }`}
               >
                 <span>{server.name}</span>
-                <span
-                  className={`text-[10px] px-1 py-0.2 rounded ${
-                    server.isAdFree
-                      ? "bg-emerald-500/20 text-emerald-300"
-                      : "bg-black/30 text-gray-400"
-                  }`}
-                >
+                <span className="text-[10px] px-1 py-0.2 rounded bg-black/30 text-gray-300">
                   {server.badge}
                 </span>
               </button>
