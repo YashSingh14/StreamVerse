@@ -4,6 +4,7 @@ import { HeroCarousel } from "../components/HeroCarousel";
 import { MediaRow } from "../components/MediaRow";
 import { ContinueWatchingRow } from "../components/ContinueWatchingRow";
 import { VideoModal } from "../components/VideoModal";
+import { WatchModal } from "../components/WatchModal";
 import {
   useTrending,
   useMovieList,
@@ -69,6 +70,20 @@ export const HomePage: React.FC = () => {
     title: "",
   });
 
+  const [watchModal, setWatchModal] = useState<{
+    isOpen: boolean;
+    id: number;
+    mediaType: "movie" | "tv";
+    title: string;
+    posterPath?: string | null;
+    backdropPath?: string | null;
+  }>({
+    isOpen: false,
+    id: 0,
+    mediaType: "movie",
+    title: "",
+  });
+
   // Queries
   const { data: trendingData, isLoading: trendingLoading } = useTrending("all", "day");
   const { data: popularMovies, isLoading: popMoviesLoading } = useMovieList("popular");
@@ -81,7 +96,6 @@ export const HomePage: React.FC = () => {
   const recentSaved = [...favorites, ...watchlist].slice(0, 2);
 
   const handlePlayTrailer = (item: SearchMultiResult) => {
-    // If videos are appended
     const videos = (item as unknown as { videos?: { results: Video[] } })?.videos?.results || [];
     setModalVideo({
       isOpen: true,
@@ -90,11 +104,24 @@ export const HomePage: React.FC = () => {
     });
   };
 
-  const handlePlayContinueItem = (title: string, _id: number, _mediaType: "movie" | "tv") => {
-    setModalVideo({
+  const handleWatchNow = (item: SearchMultiResult) => {
+    const mediaType = item.media_type === "tv" || item.first_air_date ? "tv" : "movie";
+    setWatchModal({
       isOpen: true,
+      id: item.id,
+      mediaType,
+      title: item.title || item.name || "Stream",
+      posterPath: item.poster_path,
+      backdropPath: item.backdrop_path,
+    });
+  };
+
+  const handlePlayContinueItem = (title: string, id: number, mediaType: "movie" | "tv") => {
+    setWatchModal({
+      isOpen: true,
+      id,
+      mediaType,
       title,
-      videos: [],
     });
   };
 
@@ -105,6 +132,7 @@ export const HomePage: React.FC = () => {
         items={trendingData?.results}
         isLoading={trendingLoading}
         onPlayTrailer={handlePlayTrailer}
+        onWatchNow={handleWatchNow}
       />
 
       {/* Main Content Rows Container */}
@@ -177,6 +205,17 @@ export const HomePage: React.FC = () => {
           onPlayTrailer={handlePlayTrailer}
         />
       </div>
+
+      {/* Full Stream Player Modal */}
+      <WatchModal
+        isOpen={watchModal.isOpen}
+        onClose={() => setWatchModal((prev) => ({ ...prev, isOpen: false }))}
+        id={watchModal.id}
+        mediaType={watchModal.mediaType}
+        title={watchModal.title}
+        posterPath={watchModal.posterPath}
+        backdropPath={watchModal.backdropPath}
+      />
 
       {/* Video Modal Player */}
       <VideoModal

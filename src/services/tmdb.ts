@@ -14,6 +14,7 @@ import type {
   SearchMultiResult,
   TimeWindow,
   TvDetails,
+  WatchProvidersResponse,
 } from "./types";
 
 const BASE_URL = "https://api.themoviedb.org/3";
@@ -303,6 +304,17 @@ export function getRecommendations(
 ) {
   return tmdbFetch<PaginatedResponse<SearchMultiResult>>(
     `/${mediaType}/${id}/recommendations`,
+    { signal }
+  );
+}
+
+export function getWatchProviders(
+  mediaType: "movie" | "tv",
+  id: number,
+  signal?: AbortSignal
+) {
+  return tmdbFetch<WatchProvidersResponse>(
+    `/${mediaType}/${id}/watch/providers`,
     { signal }
   );
 }

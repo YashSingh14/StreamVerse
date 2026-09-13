@@ -144,3 +144,16 @@ export function useLanguageRow(language: string, mediaType: "movie" | "tv") {
     staleTime: LIST_STALE_TIME,
   });
 }
+
+export function useWatchProviders(
+  mediaType: "movie" | "tv",
+  id: number | undefined
+) {
+  return useQuery({
+    queryKey: ["watch-providers", mediaType, id],
+    queryFn: ({ signal }) =>
+      tmdb.getWatchProviders(mediaType, id as number, signal),
+    enabled: id !== undefined && !isNaN(id),
+    staleTime: 1000 * 60 * 60 * 12, // 12h
+  });
+}

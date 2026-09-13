@@ -132,3 +132,22 @@ export interface TvEpisode {
   air_date: string;
   vote_average: number;
 }
+
+export interface WatchProvider {
+  provider_id: number;
+  provider_name: string;
+  logo_path: string;
+}
+
+export interface WatchProvidersResponse {
+  id: number;
+  results: Record<
+    string,
+    {
+      link: string;
+      flatrate?: WatchProvider[];
+      rent?: WatchProvider[];
+      buy?: WatchProvider[];
+    }
+  >;
+}

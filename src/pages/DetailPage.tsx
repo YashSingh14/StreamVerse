@@ -13,15 +13,16 @@ import {
   Film,
   ChevronLeft,
 } from "lucide-react";
-import { useMovieDetails, useTvDetails, useTvSeason } from "../hooks/useTmdb";
+import { useMovieDetails, useTvDetails, useTvSeason, useWatchProviders } from "../hooks/useTmdb";
 import { buildImageUrl } from "../services/tmdb";
 import { BlurImage } from "../components/BlurImage";
 import { MediaRow } from "../components/MediaRow";
 import { DetailSkeleton } from "../components/Skeletons";
 import { VideoModal } from "../components/VideoModal";
+import { WatchModal } from "../components/WatchModal";
 import { formatRating, formatRuntime, formatYear, formatDate } from "../utils/formatters";
 import { useWatchlistStore } from "../store/watchlistStore";
-import type { Video, SearchMultiResult } from "../services/types";
+import type { Video, SearchMultiResult, WatchProvider } from "../services/types";
 
 interface DetailPageProps {
   type: "movie" | "tv";
@@ -39,6 +40,12 @@ export const DetailPage: React.FC<DetailPageProps> = ({ type }) => {
     videos?: Video[];
   }>({ isOpen: false, title: "" });
 
+  const [watchModal, setWatchModal] = useState<{
+    isOpen: boolean;
+    season: number;
+    episode: number;
+  }>({ isOpen: false, season: 1, episode: 1 });
+
   // Movie and TV queries
   const movieQuery = useMovieDetails(type === "movie" ? numericId : undefined);
   const tvQuery = useTvDetails(type === "tv" ? numericId : undefined);
@@ -48,6 +55,9 @@ export const DetailPage: React.FC<DetailPageProps> = ({ type }) => {
     type === "tv" ? numericId : undefined,
     selectedSeason
   );
+
+  // Official Watch Providers query
+  const { data: watchProvidersData } = useWatchProviders(type, numericId);
 
   const isLoading = type === "movie" ? movieQuery.isLoading : tvQuery.isLoading;
   const isError = type === "movie" ? movieQuery.isError : tvQuery.isError;
@@ -232,16 +242,31 @@ export const DetailPage: React.FC<DetailPageProps> = ({ type }) => {
               <button
                 type="button"
                 onClick={() =>
+                  setWatchModal({
+                    isOpen: true,
+                    season: selectedSeason || 1,
+                    episode: 1,
+                  })
+                }
+                className="flex items-center space-x-2.5 px-7 py-3.5 rounded-xl bg-gradient-to-r from-cinema-red to-rose-600 hover:from-cinema-hover hover:to-rose-500 text-white font-extrabold text-sm sm:text-base shadow-xl shadow-cinema-red/30 transition-all transform hover:scale-105 active:scale-95"
+              >
+                <Play className="w-5 h-5 fill-current" />
+                <span>{type === "movie" ? "Watch Full Movie" : "Stream Season 1"}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
                   setModalVideo({
                     isOpen: true,
                     title: `${title} Trailer`,
                     videos,
                   })
                 }
-                className="flex items-center space-x-2 px-6 py-3 rounded-xl bg-cinema-red text-white font-semibold hover:bg-cinema-hover transition-all shadow-xl shadow-cinema-red/30 active:scale-95"
+                className="flex items-center space-x-2 px-5 py-3.5 rounded-xl bg-base-800 hover:bg-base-700 text-white font-semibold border border-white/10 transition-all active:scale-95"
               >
-                <Play className="w-5 h-5 fill-current" />
-                <span>Play Trailer</span>
+                <Play className="w-4 h-4 text-cinema-red fill-cinema-red" />
+                <span>Trailer</span>
               </button>
 
               <button
@@ -270,6 +295,42 @@ export const DetailPage: React.FC<DetailPageProps> = ({ type }) => {
                 <Heart className={`w-5 h-5 ${favorite ? "fill-rose-500" : ""}`} />
               </button>
             </div>
+
+            {/* Official Streaming Platforms (JustWatch) */}
+            {(() => {
+              const providers =
+                watchProvidersData?.results?.US?.flatrate ||
+                watchProvidersData?.results?.IN?.flatrate ||
+                watchProvidersData?.results?.GB?.flatrate ||
+                Object.values(watchProvidersData?.results || {})[0]?.flatrate ||
+                [];
+              if (providers.length === 0) return null;
+              return (
+                <div className="pt-3">
+                  <span className="text-xs text-gray-400 block mb-2 font-medium">
+                    Available on Official Platforms:
+                  </span>
+                  <div className="flex flex-wrap items-center justify-center md:justify-start gap-2">
+                    {providers.map((p) => (
+                      <div
+                        key={p.provider_id}
+                        className="flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-base-800/90 border border-white/10 text-xs text-gray-200 shadow-sm"
+                        title={p.provider_name}
+                      >
+                        {p.logo_path && (
+                          <img
+                            src={`https://image.tmdb.org/t/p/w92${p.logo_path}`}
+                            alt={p.provider_name}
+                            className="w-5 h-5 rounded-md object-cover shadow-sm"
+                          />
+                        )}
+                        <span className="font-medium">{p.provider_name}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
 
@@ -351,7 +412,14 @@ export const DetailPage: React.FC<DetailPageProps> = ({ type }) => {
                 {seasonQuery.data.episodes.map((ep) => (
                   <div
                     key={ep.id}
-                    className="flex flex-col sm:flex-row gap-4 p-4 rounded-2xl bg-base-850 border border-white/5 hover:border-white/15 transition-all shadow-md group"
+                    onClick={() =>
+                      setWatchModal({
+                        isOpen: true,
+                        season: selectedSeason,
+                        episode: ep.episode_number,
+                      })
+                    }
+                    className="flex flex-col sm:flex-row gap-4 p-4 rounded-2xl bg-base-850 border border-white/5 hover:border-cinema-red/40 transition-all shadow-md group cursor-pointer hover:bg-base-800"
                   >
                     <div className="w-full sm:w-56 aspect-video rounded-xl overflow-hidden bg-base-900 flex-shrink-0 relative">
                       <BlurImage
@@ -360,6 +428,11 @@ export const DetailPage: React.FC<DetailPageProps> = ({ type }) => {
                         size="w300"
                         aspectRatio="aspect-video"
                       />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                        <div className="w-10 h-10 rounded-full bg-cinema-red text-white flex items-center justify-center shadow-lg">
+                          <Play className="w-4 h-4 fill-current ml-0.5" />
+                        </div>
+                      </div>
                       <div className="absolute top-2 left-2 px-2 py-0.5 rounded bg-black/70 text-[11px] font-bold text-white">
                         Ep {ep.episode_number}
                       </div>
@@ -367,8 +440,8 @@ export const DetailPage: React.FC<DetailPageProps> = ({ type }) => {
 
                     <div className="flex-1 space-y-1.5">
                       <div className="flex items-baseline justify-between">
-                        <h4 className="text-base font-bold text-white group-hover:text-cinema-red transition-colors">
-                          {ep.episode_number}. {ep.name}
+                        <h4 className="text-base font-bold text-white group-hover:text-cinema-red transition-colors flex items-center gap-2">
+                          <span>{ep.episode_number}. {ep.name}</span>
                         </h4>
                         {ep.vote_average > 0 && (
                           <span className="flex items-center text-xs font-semibold text-amber-400">
@@ -413,7 +486,22 @@ export const DetailPage: React.FC<DetailPageProps> = ({ type }) => {
         )}
       </div>
 
-      {/* Video Modal Player */}
+      {/* Full Movie / Episode Streaming Player Modal */}
+      <WatchModal
+        isOpen={watchModal.isOpen}
+        onClose={() => setWatchModal((prev) => ({ ...prev, isOpen: false }))}
+        id={details.id}
+        mediaType={type}
+        title={title}
+        posterPath={details.poster_path}
+        backdropPath={details.backdrop_path}
+        runtime={"runtime" in details ? details.runtime : undefined}
+        initialSeason={watchModal.season}
+        initialEpisode={watchModal.episode}
+        totalSeasons={"number_of_seasons" in details ? details.number_of_seasons : 1}
+      />
+
+      {/* Video Modal Player (Trailer) */}
       <VideoModal
         isOpen={modalVideo.isOpen}
         onClose={() => setModalVideo((prev) => ({ ...prev, isOpen: false }))}

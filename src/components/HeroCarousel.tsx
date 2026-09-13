@@ -1,7 +1,7 @@
 // src/components/HeroCarousel.tsx
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Play, Info, Plus, Check, Star, ChevronLeft, ChevronRight } from "lucide-react";
+import { Play, Info, Plus, Check, Star, ChevronLeft, ChevronRight, Film } from "lucide-react";
 import { buildImageUrl } from "../services/tmdb";
 import { formatRating, formatYear, truncateText } from "../utils/formatters";
 import { useWatchlistStore } from "../store/watchlistStore";
@@ -12,12 +12,14 @@ interface HeroCarouselProps {
   items?: SearchMultiResult[];
   isLoading?: boolean;
   onPlayTrailer?: (item: SearchMultiResult) => void;
+  onWatchNow?: (item: SearchMultiResult) => void;
 }
 
 export const HeroCarousel: React.FC<HeroCarouselProps> = ({
   items = [],
   isLoading = false,
   onPlayTrailer,
+  onWatchNow,
 }) => {
   const navigate = useNavigate();
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -138,22 +140,34 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
             <button
               type="button"
               onClick={() => {
+                if (onWatchNow) onWatchNow(currentItem);
+                else navigate(`/${mediaType}/${currentItem.id}`);
+              }}
+              className="flex items-center space-x-2 px-6 py-3 rounded-xl bg-gradient-to-r from-cinema-red to-rose-600 text-white font-bold hover:brightness-110 transition-all shadow-xl shadow-cinema-red/40 active:scale-95"
+            >
+              <Play className="w-5 h-5 fill-current" />
+              <span>Watch Now</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
                 if (onPlayTrailer) onPlayTrailer(currentItem);
                 else navigate(`/${mediaType}/${currentItem.id}`);
               }}
-              className="flex items-center space-x-2 px-6 py-3 rounded-xl bg-white text-black font-semibold hover:bg-cinema-red hover:text-white transition-all shadow-xl hover:shadow-cinema-red/30 active:scale-95"
+              className="flex items-center space-x-2 px-5 py-3 rounded-xl bg-white/20 backdrop-blur-md text-white font-medium hover:bg-white/30 border border-white/20 transition-all active:scale-95"
             >
-              <Play className="w-5 h-5 fill-current" />
-              <span>Play Trailer</span>
+              <Film className="w-4 h-4" />
+              <span>Trailer</span>
             </button>
 
             <button
               type="button"
               onClick={() => navigate(`/${mediaType}/${currentItem.id}`)}
-              className="flex items-center space-x-2 px-5 py-3 rounded-xl bg-white/15 backdrop-blur-md text-white font-medium hover:bg-white/25 border border-white/20 transition-all active:scale-95"
+              className="flex items-center space-x-2 px-4 py-3 rounded-xl bg-base-800/80 backdrop-blur-md text-gray-200 font-medium hover:bg-base-700 hover:text-white border border-white/10 transition-all active:scale-95"
             >
-              <Info className="w-5 h-5" />
-              <span>More Info</span>
+              <Info className="w-4 h-4" />
+              <span>Info</span>
             </button>
 
             <button
